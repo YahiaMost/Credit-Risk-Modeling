@@ -4,7 +4,13 @@ Created on Mon Sep 30 22:03:11 2024
 
 @author: Yahia
 """
-#%% # Expected Loss
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+import numpy as np
+import pandas as pd
+import pprint as pprint
+
+#%% Introduction
 # =============================================================================
 #                               Expected Loss Description
 # =============================================================================
@@ -22,15 +28,8 @@ Created on Mon Sep 30 22:03:11 2024
 # <center>Expected Loss (EL) = 25% $\times$5%$\times$\$360,000
 # <center>Expected Loss (EL) = \$4500
 
-import numpy as np
-import pandas as pd
-
 loan_data_backup = pd.read_csv("loan_data_2007_2014.csv")
 
-#%% General Preprocessing
-# =============================================================================
-# General Preprocessing
-# =============================================================================
 loan_data = loan_data_backup.copy() # Make a copy of the original data
 pd.options.display.max_columns = None # Shows all columns of the DF
 loan_data # Show us the DF (.head() or .tail() or .columns.values())
@@ -99,17 +98,17 @@ loan_data.columns.values
 
 loan_data.isnull()
 
-# Data that is needed (null rows to be removed)\
-# annual_inc : annual income\
-# delinq_2yrs : delinquency (borrower is late or overdue) in the last 2 years\
-# inq_last_6mnths : inquiries in the last 6 months\
-# open_acc : open accounts\
-# pub_rec : public records\
-# total_acc : total accounts\
-# acc_now_delinq : accounts now delinquent\
-# total_rev_hi_lim : total revolving limit\
-# emp_lenght_int : employment length\
-# mths_since_earliest_cr_line : Months since earliest credit line\
+# Data that is needed (null rows to be removed)
+# annual_inc : annual income
+# delinq_2yrs : delinquency (borrower is late or overdue) in the last 2 years
+# inq_last_6mnths : inquiries in the last 6 months
+# open_acc : open accounts
+# pub_rec : public records
+# total_acc : total accounts
+# acc_now_delinq : accounts now delinquent
+# total_rev_hi_lim : total revolving limit
+# emp_lenght_int : employment length
+# mths_since_earliest_cr_line : Months since earliest credit line
 
 loan_data['total_rev_hi_lim'].fillna(loan_data['funded_amnt'], inplace=True) # replace the revolving amount missing data to be the total funded amount (inplace of the available row)
 loan_data['total_rev_hi_lim'].isnull().sum()
@@ -133,4 +132,40 @@ loan_data['emp_length_int'].fillna(0, inplace=True)
 
 #%%% Data Preparation
 # Converting the continuous variables into dummy variables to use in the PD model to increase the simplicity of the model
-loan_data['loan_status'].unique()
+loan_data['loan_status'].value_counts()/loan_data['loan_status'].count() # Proportion of accounts by status
+
+# Default definition 
+## We need to define the regression coefficients for each variable
+loan_data["good_bad"] = np.where(loan_data['loan_status'].isin(['Charged Off', 'Default', 'Late (31-120 days)',
+                                                               'Does not meet the credit policy. Status:Charged Off']), # Things that define default
+                                0, # Value if the condition is true (defaulted)
+                                1) # Value if the condition is false (non-default)
+
+#%%% Fine-Classing
+# Turning continuous variables into bins (discrete and categorical)
+
+# Weight of evidence (WoE) shows to what extent an independent variable would predict a dependent variable
+
+#%%% Coarse-Classing
+# Combining bins that have a similar WoE (same strength predictability)
+# Lowering the number of dummy variables thus improved the model
+
+#%%% Splitting Data
+
+# Lesson 25
+# To prevent overfitting we split our original data into 90-10 or 80-20 to train-test the model
+# Overfitting includes in it random noise that allows it to miss the point of the underlying data
+
+from sklearn.model_selection import train_test_split
+
+loan_data_inputs_train, loan_data_inputs_test, loan_data_targets_train, loan_data_targets_test = train_test_split(loan_data.drop('good_bad', axis=1),  # Independent Variables
+                                                                                                                  loan_data['good_bad'], # Dependent Variables (PD)
+                                                                                                                  test_size = 0.2, # 80-20 split
+                                                                                                                  random_state= 42) # shuffle data in the same way every time
+print("Train inputs:", loan_data_inputs_train.shape)
+print("Train Targets:", loan_data_targets_train.shape)
+
+print("Test inputs:", loan_data_inputs_test.shape)
+print("Test Targets:", loan_data_targets_test.shape)
+
+print("Ratio =", loan_data_targets_test.shape[0]*100/loan_data_targets_train.shape[0] ,"%")
