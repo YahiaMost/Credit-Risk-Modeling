@@ -169,3 +169,37 @@ print("Test inputs:", loan_data_inputs_test.shape)
 print("Test Targets:", loan_data_targets_test.shape)
 
 print("Ratio =", loan_data_targets_test.shape[0]*100/loan_data_targets_train.shape[0] ,"%")
+
+#%%% Data Preparation
+# Preprocessing discrete variables
+# Lesson 26
+df_inputs_prepr = loan_data_inputs_train
+df_targets_prepr = loan_data_targets_train
+
+df1 = pd.concat([df_inputs_prepr['grade'], df_targets_prepr], axis = 1)
+df1 = pd.concat([df1.groupby(df1.columns.values[0], as_index = False)[df1.columns.values[1]].count(), # Counts each grade (good)])
+                 df1.groupby(df1.columns.values[0], as_index = False)[df1.columns.values[1]].mean()], # Gets the average non-defaults for each grade
+                 axis = 1)
+
+df1 = df1.iloc[:,[0,1,3]] # Remove duplicate grade column
+df1.columns = [df1.columns.values[0], 'n_obs', 'prop_good'] # Rename columns
+
+df1['prop_n_obs'] = df1['n_obs'] / df1["n_obs"].sum() # Proportion of number of observations
+df1['n_good'] = df1['prop_good'] * df1['n_obs'] 
+df1['n_bad'] = (1 -df1['prop_good']) * df1['n_obs']
+
+df1['prop_n_good'] = df1['n_good'] / df1['n_good'].sum() # Proportion of number of good borrowers
+df1['prop_n_bad'] = df1['n_bad'] / df1['n_bad'].sum()  # Proportion of number of bad borrowers
+
+df1['WoE'] = np.log(df1['prop_n_good']/df1['prop_n_bad']) # Find WoE
+df1 = df1.sort_values(['WoE']); df1 = df1.reset_index(drop = True) # Order by WoE
+
+# Not always needed, but good to have
+df1['diff_prop_good'] = df1['prop_good'].diff().abs() # Difference in proportion of good borrowers
+df1['diff_WoE'] = df1['WoE'].diff().abs() # Difference in WoE
+
+df1['IV'] = (df1['prop_n_good'] - df1['prop_n_bad']) * df1['WoE']
+df1['IV'] = df1['IV'].sum()
+
+#%%%% Automating Calculations
+# Preprocessing discrete variables
