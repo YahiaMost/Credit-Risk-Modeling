@@ -203,3 +203,33 @@ df1['IV'] = df1['IV'].sum()
 
 #%%%% Automating Calculations
 # Preprocessing discrete variables
+# Lesson 27
+
+def woe_discrete(df, discrete_variable_name, good_bad_variable_df):
+    df = pd.concat([df_inputs_prepr[discrete_variable_name], good_bad_variable_df], axis = 1)
+    
+    df = pd.concat([df.groupby(df.columns.values[0], as_index = False)[df.columns.values[1]].count(), # Counts the number of each category 
+                    df.groupby(df.columns.values[0], as_index = False)[df.columns.values[1]].mean()], # Gets the average non-defaults for each category
+                    axis = 1)
+    
+    
+    df = df.iloc[:,[0,1,3]] # Remove duplicate catgories (independent variable) column. Was duplicated in concatenation
+    df.columns = [df.columns.values[0], 'n_obs', 'prop_good'] # Rename columns
+
+    df['prop_n_obs'] = df['n_obs'] / df["n_obs"].sum() # Proportion of number of observations
+    df['n_good'] = df['prop_good'] * df['n_obs'] 
+    df['n_bad'] = (1 -df['prop_good']) * df['n_obs']
+
+    df['prop_n_good'] = df['n_good'] / df['n_good'].sum() # Proportion of number of good borrowers
+    df['prop_n_bad'] = df['n_bad'] / df['n_bad'].sum()  # Proportion of number of bad borrowers
+
+    df['WoE'] = np.log(df['prop_n_good']/df['prop_n_bad']) # Find WoE
+    df = df.sort_values(['WoE']); df = df.reset_index(drop = True) # Order by WoE
+
+    # Not always needed, but good to have
+    df['diff_prop_good'] = df['prop_good'].diff().abs() # Difference in proportion of good borrowers
+    df['diff_WoE'] = df['WoE'].diff().abs() # Difference in WoE
+
+    df['IV'] = (df['prop_n_good'] - df['prop_n_bad']) * df['WoE']
+    df['IV'] = df['IV'].sum()
+    
