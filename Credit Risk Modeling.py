@@ -170,7 +170,7 @@ print("Test Targets:", loan_data_targets_test.shape)
 
 print("Ratio =", loan_data_targets_test.shape[0]*100/loan_data_targets_train.shape[0] ,"%")
 
-#%%% Data Preparation
+#%%% 5: Data Preparation
 # Preprocessing discrete variables
 # Lesson 26
 df_inputs_prepr = loan_data_inputs_train
@@ -205,7 +205,7 @@ df1['IV'] = df1['IV'].sum()
 # Preprocessing discrete variables
 # Lesson 27
 
-def woe_discrete(df, discrete_variable_name, good_bad_variable_df):
+def woe_discrete(df, discrete_variable_name: str, good_bad_variable_df):
     df = pd.concat([df_inputs_prepr[discrete_variable_name], good_bad_variable_df], axis = 1)
     
     df = pd.concat([df.groupby(df.columns.values[0], as_index = False)[df.columns.values[1]].count(), # Counts the number of each category 
@@ -216,20 +216,27 @@ def woe_discrete(df, discrete_variable_name, good_bad_variable_df):
     df = df.iloc[:,[0,1,3]] # Remove duplicate catgories (independent variable) column. Was duplicated in concatenation
     df.columns = [df.columns.values[0], 'n_obs', 'prop_good'] # Rename columns
 
-    df['prop_n_obs'] = df['n_obs'] / df["n_obs"].sum() # Proportion of number of observations
-    df['n_good'] = df['prop_good'] * df['n_obs'] 
-    df['n_bad'] = (1 -df['prop_good']) * df['n_obs']
+    df['prop_n_obs'] = df['n_obs'] / df["n_obs"].sum() # Proportion category observations to total number of observations
+    df['n_good'] = df['prop_good'] * df['n_obs'] # The number of good borrowers
+    df['n_bad'] = (1 -df['prop_good']) * df['n_obs']  # The number of bad borrowers
 
-    df['prop_n_good'] = df['n_good'] / df['n_good'].sum() # Proportion of number of good borrowers
-    df['prop_n_bad'] = df['n_bad'] / df['n_bad'].sum()  # Proportion of number of bad borrowers
+    df['prop_n_good'] = df['n_good'] / df['n_good'].sum() # Proportion of category good borrowers to total number of good borrowers
+    df['prop_n_bad'] = df['n_bad'] / df['n_bad'].sum()  # Proportion of category bad borrowers to total number of bad borrowers
 
-    df['WoE'] = np.log(df['prop_n_good']/df['prop_n_bad']) # Find WoE
-    df = df.sort_values(['WoE']); df = df.reset_index(drop = True) # Order by WoE
+    df['WoE'] = np.log(df['prop_n_good']/df['prop_n_bad']) # Calculate WoE
+    df = df.sort_values(['WoE']); df = df.reset_index(drop = True) # Order by WoE and reset index
 
     # Not always needed, but good to have
     df['diff_prop_good'] = df['prop_good'].diff().abs() # Difference in proportion of good borrowers
     df['diff_WoE'] = df['WoE'].diff().abs() # Difference in WoE
-
-    df['IV'] = (df['prop_n_good'] - df['prop_n_bad']) * df['WoE']
-    df['IV'] = df['IV'].sum()
     
+    # Calculate IV
+    df['IV'] = (df['prop_n_good'] - df['prop_n_bad']) * df['WoE'] # Calculate the components of information value
+    df['IV'] = df['IV'].sum() # Sum components to calculate IV
+    
+    return df
+
+df_temp = woe_discrete(df_inputs_prepr, "grade", df_targets_prepr)
+
+#%%%% Visualizing Results
+import matplotlib.pyplot as plt
